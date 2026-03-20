@@ -1,0 +1,102 @@
+[
+  {
+    "id": 1,
+    "question": "What is the correct process to leverage Prompt Builder in a Salesforce org?",
+    "options": {
+      "A": "Select the appropriate prompt template type to use, select one of Salesforce's standard prompts, determine the object to associate the prompt, select a record to validate against, and associate the prompt to an action.",
+      "B": "Select the appropriate prompt template type to use, develop the prompt within the prompt workspace, select resources to dynamically insert CRM-derived grounding data, pick the model to use, and test and validate the generated responses.",
+      "C": "Enable the target object for generative prompting, develop the prompt within the prompt workspace, select records to fine-tune and ground the response, enable the Trust Layer, and associate the prompt to an action."
+    },
+    "correct_answer": "B"
+  },
+  {
+    "id": 2,
+    "question": "An Agentforce Agent has been developed with multiple topics and Agent Actions that use flows and Apex. Which options are available for deploying these to production?",
+    "options": {
+      "A": "Use only change sets because the Salesforce CLI does not currently support the deployment of agent-related metadata.",
+      "B": "Deploy flows, Apex, and all agent-related items using either change sets or the Salesforce CLI/Metadata API.",
+      "C": "Deploy the flows and Apex using normal deployment tools and manually create the agent-related items in production."
+    },
+    "correct_answer": "B"
+  },
+  {
+    "id": 3,
+    "question": "Universal Containers (UC) configured a new PDF file ingestion in Data Cloud with all the required fields, and also created the mapping and the search index. UC is now setting up the retriever and notices a required field is missing. How should UC resolve this?",
+    "options": {
+      "A": "Update the search index to include the desired field.",
+      "B": "Modify the retriever's configuration to include the desired field.",
+      "C": "Create a new custom Data Cloud object that includes the desired field."
+    },
+    "correct_answer": "A"
+  },
+  {
+    "id": 4,
+    "question": "Universal Containers (UC) users are complaining that agent answers are not satisfactory. The agent is using PDF files as a knowledge source. How should UC troubleshoot this issue?",
+    "options": {
+      "A": "Verify the retriever's filter criteria and data source connection.",
+      "B": "Check that the agent has the PDF file field permission access for the data library.",
+      "C": "Analyze the data mapping between source fields and Data Cloud object fields."
+    },
+    "correct_answer": "A"
+  },
+  {
+    "id": 5,
+    "question": "Universal Containers wants to leverage the Record Snapshots grounding feature in a prompt template. What preparations are required?",
+    "options": {
+      "A": "Configure page layout of the master record type",
+      "B": "Create a field set for all the fields to be grounded",
+      "C": "Enable and configure dynamic form for the object"
+    },
+    "correct_answer": "C"
+  },
+  {
+    "id": 6,
+    "question": "Universal Containers (UC) wants to enable its sales team with automatic post-call visibility into mention of competitors, products, and other custom phrases. Which feature should the company use to enable the sales team?",
+    "options": {
+      "A": "Call Insights",
+      "B": "Call Explorer",
+      "C": "Call Summaries"
+    },
+    "correct_answer": "A"
+  },
+  {
+    "id": 7,
+    "question": "An Agentforce Specialist is setting up a new org and needs to ensure that users can create and execute prompt templates. The Agentforce Specialist is unsure which roles are necessary for these tasks. Which permission sets should the Agentforce Specialist assign to users who need to create and execute prompt templates?",
+    "options": {
+      "A": "Prompt Template Manager for creating templates and Prompt Template User for executing templates",
+      "B": "Prompt Template Manager for creating templates and Data Cloud Admin for executing templates",
+      "C": "Data Cloud Admin for creating templates and Prompt Template User for executing templates"
+    },
+    "correct_answer": "A"
+  },
+  {
+    "id": 8,
+    "question": "What considerations should an Agentforce Specialist be aware of when using Record Snapshots grounding in a prompt template?",
+    "options": {
+      "A": "Activities such as tasks and events are excluded.",
+      "B": "Email addresses associated with the object are excluded.",
+      "C": "Empty data, such as fields without values or sections without limits, is filtered out."
+    },
+    "correct_answer": "C"
+  },
+  {
+    "id": 9,
+    "question": "Universal Containers (UC) wants its AI agent to return responses quickly. UC needs to optimize the retriever's configuration to ensure minimal latency when grounding AI responses. Which configuration aspect should UC prioritize?",
+    "options": {
+      "A": "Increase the recency bias setting for the retriever limiting scope to more recent data.",
+      "B": "Ensure the retriever's filters are defined to limit the scope of each search efficiently.",
+      "C": "Configure the retriever to operate in dynamic mode so that it modifies the search index structure at runtime."
+    },
+    "correct_answer": "B"
+  },
+  {
+    "id": 10,
+    "question": "A support team handles a high volume of chat interactions and needs a solution to provide quick, relevant responses to customer inquiries. Responses must be grounded in the organization's knowledge base to maintain consistency and accuracy. Which feature in Agentforce for Service should the support team use?",
+    "options": {
+      "A": "Einstein Knowledge Recommendations",
+      "B": "Einstein Service Replies",
+      "C": "Einstein Reply Recommendations"
+    },
+    "correct_answer": "B"
+  }
+]
