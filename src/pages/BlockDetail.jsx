@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Play, Pause, History, ArrowLeft } from 'lucide-react'
+import { Play, Pause, History, ArrowLeft, Settings } from 'lucide-react'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -153,6 +153,14 @@ export default function BlockDetail() {
               Iniciar nuevo test
             </button>
           )}
+          
+          <Link
+            to={`/blocks/${id}/manage`}
+            className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <Settings className="w-5 h-5 mr-2" />
+            Gestionar preguntas
+          </Link>
         </div>
       </div>
 

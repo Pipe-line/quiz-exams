@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Blocks from './pages/Blocks'
 import BlockDetail from './pages/BlockDetail'
+import ManageQuestions from './pages/ManageQuestions'
 import Test from './pages/Test'
 import TestResults from './pages/TestResults'
 
@@ -38,6 +39,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <BlockDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/blocks/:id/manage"
+              element={
+                <ProtectedRoute>
+                  <ManageQuestions />
                 </ProtectedRoute>
               }
             />
