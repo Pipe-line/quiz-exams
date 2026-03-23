@@ -83,7 +83,7 @@ export default function Blocks() {
 
     // Validar estructura básica
     const firstQuestion = questions[0]
-    if (!firstQuestion.question || !firstQuestion.options || !firstQuestion.correct_answer) {
+    if (!firstQuestion.question || !firstQuestion.options || !firstQuestion.hasOwnProperty('correct_answer')) {
       throw new Error('Estructura de JSON inválida. Revisa el formato.')
     }
 
@@ -106,13 +106,13 @@ export default function Blocks() {
 
     if (blockError) throw blockError
 
-    // Insertar preguntas
+    // Insertar preguntas (si correct_answer es null, usar 'A' por defecto)
     const questionsToInsert = questions.map((q) => ({
       exam_block_id: blockData.id,
       question_number: q.id,
       question_text: q.question,
       options: q.options,
-      correct_answer: q.correct_answer
+      correct_answer: q.correct_answer || 'A' // Si es null, usa 'A' por defecto
     }))
 
     const { error: questionsError } = await supabase
