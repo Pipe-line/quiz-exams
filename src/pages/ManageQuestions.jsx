@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { ArrowLeft, Edit, Save, X, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Edit, Save, X, AlertCircle, Check } from 'lucide-react'
 
 export default function ManageQuestions() {
   const { id } = useParams()
@@ -10,9 +10,8 @@ export default function ManageQuestions() {
   const [block, setBlock] = useState(null)
   const [questions, setQuestions] = useState([])
   const [corrections, setCorrections] = useState(new Map())
-  const [editingQuestion, setEditingQuestion] = useState(null)
-  const [newCorrectAnswer, setNewCorrectAnswer] = useState('')
-  const [correctionReason, setCorrectionReason] = useState('')
+  const [editMode, setEditMode] = useState(false)
+  const [pendingChanges, setPendingChanges] = useState(new Map()) // {questionId: {answer, reason}}
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -62,45 +61,77 @@ export default function ManageQuestions() {
     }
   }
 
-  const handleEditQuestion = (question) => {
-    const correction = corrections.get(question.id)
-    setEditingQuestion(question.id)
-    setNewCorrectAnswer(correction?.corrected_answer || question.correct_answer)
-    setCorrectionReason(correction?.reason || '')
+  const handleOptionClick = (questionId, optionKey) => {
+    if (!editMode) return
+
+    const question = questions.find(q => q.id === questionId)
+    const correction = corrections.get(questionId)
+    const currentCorrectAnswer = correction?.corrected_answer || question.correct_answer
+
+    // Si ya es la correcta, no hacer nada
+    if (optionKey === currentCorrectAnswer) return
+
+    // Guardar cambio pendiente
+    setPendingChanges(prev => new Map(prev).set(questionId, {
+      answer: optionKey,
+      reason: prev.get(questionId)?.reason || ''
+    }))
   }
 
-  const handleSaveCorrection = async () => {
-    if (!newCorrectAnswer) return
+  const handleReasonChange = (questionId, reason) => {
+    setPendingChanges(prev => {
+      const newMap = new Map(prev)
+      const existing = newMap.get(questionId)
+      if (existing) {
+        newMap.set(questionId, { ...existing, reason })
+      }
+      return newMap
+    })
+  }
+
+  const handleRemovePendingChange = (questionId) => {
+    setPendingChanges(prev => {
+      const newMap = new Map(prev)
+      newMap.delete(questionId)
+      return newMap
+    })
+  }
+
+  const handleSaveAll = async () => {
+    if (pendingChanges.size === 0) {
+      setEditMode(false)
+      return
+    }
 
     setSaving(true)
     try {
+      const updates = Array.from(pendingChanges.entries()).map(([questionId, change]) => ({
+        question_id: questionId,
+        user_id: user.id,
+        corrected_answer: change.answer,
+        reason: change.reason || null
+      }))
+
       const { error } = await supabase
         .from('question_corrections')
-        .upsert({
-          question_id: editingQuestion,
-          user_id: user.id,
-          corrected_answer: newCorrectAnswer,
-          reason: correctionReason || null
-        })
+        .upsert(updates)
 
       if (error) throw error
 
       await loadData()
-      setEditingQuestion(null)
-      setNewCorrectAnswer('')
-      setCorrectionReason('')
+      setPendingChanges(new Map())
+      setEditMode(false)
     } catch (error) {
-      console.error('Error saving correction:', error)
-      alert('Error al guardar la corrección')
+      console.error('Error saving corrections:', error)
+      alert('Error al guardar las correcciones')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleCancelEdit = () => {
-    setEditingQuestion(null)
-    setNewCorrectAnswer('')
-    setCorrectionReason('')
+  const handleCancelAll = () => {
+    setPendingChanges(new Map())
+    setEditMode(false)
   }
 
   const handleDeleteCorrection = async (questionId) => {
@@ -150,17 +181,54 @@ export default function ManageQuestions() {
       </Link>
 
       <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">{block.name}</h1>
-        <p className="text-gray-600">Gestiona y corrige las respuestas correctas de las preguntas</p>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">{block.name}</h1>
+            <p className="text-gray-600">Gestiona y corrige las respuestas correctas de las preguntas</p>
+          </div>
+          
+          {/* Botón de edición global */}
+          {!editMode ? (
+            <button
+              onClick={() => setEditMode(true)}
+              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+            >
+              <Edit className="w-5 h-5 mr-2" />
+              Editar
+            </button>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                onClick={handleSaveAll}
+                disabled={saving}
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+              >
+                <Save className="w-5 h-5 mr-2" />
+                {saving ? 'Guardando...' : `Guardar${pendingChanges.size > 0 ? ` (${pendingChanges.size})` : ''}`}
+              </button>
+              <button
+                onClick={handleCancelAll}
+                disabled={saving}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <X className="w-5 h-5 mr-2" />
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
         
         <div className="mt-4 p-4 bg-blue-50 rounded-lg">
           <div className="flex items-start">
             <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
             <div className="text-sm text-blue-900">
-              <p className="font-medium mb-1">💡 ¿Para qué sirve esto?</p>
+              <p className="font-medium mb-1">💡 ¿Cómo funciona?</p>
               <p>
-                Si encuentras una pregunta con la respuesta correcta equivocada, puedes corregirla aquí.
-                Tus correcciones se aplicarán a todos tus futuros intentos de este bloque.
+                {editMode ? (
+                  <>Haz <strong>click en la opción correcta</strong> de cada pregunta. Los cambios se guardarán al pulsar "Guardar".</>
+                ) : (
+                  <>Pulsa <strong>"Editar"</strong> para activar el modo de corrección.</>
+                )}
               </p>
             </div>
           </div>
@@ -170,65 +238,86 @@ export default function ManageQuestions() {
       <div className="space-y-6">
         {questions.map((question) => {
           const correction = corrections.get(question.id)
-          const isEditing = editingQuestion === question.id
-          const effectiveCorrectAnswer = correction?.corrected_answer || question.correct_answer
+          const pendingChange = pendingChanges.get(question.id)
+          const effectiveCorrectAnswer = pendingChange?.answer || correction?.corrected_answer || question.correct_answer
 
           return (
             <div key={question.id} className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full mb-3">
-                    Pregunta #{question.question_number}
-                  </span>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    {question.question_text}
-                  </h3>
-                </div>
-                
-                {!isEditing && (
-                  <button
-                    onClick={() => handleEditQuestion(question)}
-                    className="ml-4 inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    <Edit className="w-4 h-4 mr-2" />
-                    Editar
-                  </button>
-                )}
+              <div className="mb-4">
+                <span className="inline-block px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full mb-3">
+                  Pregunta #{question.question_number}
+                </span>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {question.question_text}
+                </h3>
               </div>
 
               {/* Opciones */}
               <div className="space-y-2 mb-4">
                 {Object.entries(question.options).map(([key, value]) => {
                   const isCorrect = key === effectiveCorrectAnswer
+                  const isClickable = editMode
 
                   return (
-                    <div
+                    <button
                       key={key}
-                      className={`p-3 rounded border-2 ${
+                      onClick={() => handleOptionClick(question.id, key)}
+                      disabled={!isClickable}
+                      className={`w-full text-left p-3 rounded border-2 transition-all ${
                         isCorrect
                           ? 'border-green-500 bg-green-50'
+                          : isClickable
+                          ? 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50 cursor-pointer'
                           : 'border-gray-200 bg-white'
                       }`}
                     >
-                      <span className="font-semibold mr-2">{key}.</span>
-                      <span>{value}</span>
-                      {isCorrect && (
-                        <span className="ml-2 text-sm font-medium text-green-600">
-                          ✓ Respuesta correcta
-                        </span>
-                      )}
-                    </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <span className="font-semibold mr-2">{key}.</span>
+                          <span>{value}</span>
+                        </div>
+                        {isCorrect && (
+                          <Check className="w-5 h-5 text-green-600 ml-2 flex-shrink-0" />
+                        )}
+                      </div>
+                    </button>
                   )
                 })}
               </div>
 
-              {/* Estado de corrección */}
-              {correction && !isEditing && (
+              {/* Cambio pendiente */}
+              {pendingChange && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-sm font-medium text-blue-900">
+                      ✏️ Cambio pendiente: {pendingChange.answer}
+                      {correction && ` (antes: ${correction.corrected_answer || question.correct_answer})`}
+                    </p>
+                    <button
+                      onClick={() => handleRemovePendingChange(question.id)}
+                      className="text-blue-600 hover:text-blue-700"
+                      title="Deshacer cambio"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <textarea
+                    value={pendingChange.reason}
+                    onChange={(e) => handleReasonChange(question.id, e.target.value)}
+                    placeholder="Motivo del cambio (opcional)..."
+                    className="w-full p-2 border border-blue-300 rounded text-sm"
+                    rows={2}
+                  />
+                </div>
+              )}
+
+              {/* Estado de corrección existente */}
+              {correction && !pendingChange && !editMode && (
                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-yellow-900">
-                        ⚠️ Respuesta corregida por ti: {correction.corrected_answer}
+                        ⚠️ Respuesta corregida: {correction.corrected_answer}
                       </p>
                       {correction.reason && (
                         <p className="text-sm text-yellow-700 mt-1">
@@ -236,7 +325,7 @@ export default function ManageQuestions() {
                         </p>
                       )}
                       <p className="text-xs text-yellow-600 mt-1">
-                        Original era: {question.correct_answer}
+                        Original: {question.correct_answer}
                       </p>
                     </div>
                     <button
@@ -245,56 +334,6 @@ export default function ManageQuestions() {
                       title="Eliminar corrección"
                     >
                       <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Formulario de edición */}
-              {isEditing && (
-                <div className="mt-4 p-4 bg-gray-50 rounded border border-gray-300">
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Selecciona la respuesta correcta:
-                  </p>
-                  <select
-                    value={newCorrectAnswer}
-                    onChange={(e) => setNewCorrectAnswer(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded mb-3"
-                  >
-                    {Object.keys(question.options).map((key) => (
-                      <option key={key} value={key}>
-                        {key} - {question.options[key]}
-                      </option>
-                    ))}
-                  </select>
-
-                  <p className="text-sm font-medium text-gray-700 mb-2">
-                    Motivo de la corrección (opcional):
-                  </p>
-                  <textarea
-                    value={correctionReason}
-                    onChange={(e) => setCorrectionReason(e.target.value)}
-                    placeholder="Ej: La respuesta oficial está incorrecta según la documentación..."
-                    className="w-full p-2 border border-gray-300 rounded mb-3"
-                    rows={2}
-                  />
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleSaveCorrection}
-                      disabled={saving}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      <Save className="w-4 h-4 mr-2" />
-                      {saving ? 'Guardando...' : 'Guardar corrección'}
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={saving}
-                      className="inline-flex items-center px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
-                    >
-                      <X className="w-4 h-4 mr-2" />
-                      Cancelar
                     </button>
                   </div>
                 </div>
