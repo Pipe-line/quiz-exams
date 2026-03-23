@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Upload, BookOpen, Trash2 } from 'lucide-react'
+import { Upload, BookOpen, Trash2, FileText, X } from 'lucide-react'
 
 export default function Blocks() {
   const { user } = useAuth()
@@ -10,6 +10,8 @@ export default function Blocks() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+  const [showPasteModal, setShowPasteModal] = useState(false)
+  const [pastedJson, setPastedJson] = useState('')
 
   useEffect(() => {
     loadBlocks()
@@ -41,54 +43,7 @@ export default function Blocks() {
 
     try {
       const text = await file.text()
-      const questions = JSON.parse(text)
-
-      if (!Array.isArray(questions)) {
-        throw new Error('El JSON debe ser un array de preguntas')
-      }
-
-      // Validar estructura básica
-      const firstQuestion = questions[0]
-      if (!firstQuestion.question || !firstQuestion.options || !firstQuestion.correct_answer) {
-        throw new Error('Estructura de JSON inválida. Revisa el formato.')
-      }
-
-      const blockName = prompt('Nombre del bloque de examen:')
-      if (!blockName) {
-        setUploading(false)
-        return
-      }
-
-      // Crear bloque
-      const { data: blockData, error: blockError } = await supabase
-        .from('exam_blocks')
-        .insert({
-          user_id: user.id,
-          name: blockName,
-          description: `${questions.length} preguntas`,
-          total_questions: 0 // Se actualizará automáticamente con el trigger
-        })
-        .select()
-        .single()
-
-      if (blockError) throw blockError
-
-      // Insertar preguntas
-      const questionsToInsert = questions.map((q) => ({
-        exam_block_id: blockData.id,
-        question_number: q.id,
-        question_text: q.question,
-        options: q.options,
-        correct_answer: q.correct_answer
-      }))
-
-      const { error: questionsError } = await supabase
-        .from('questions')
-        .insert(questionsToInsert)
-
-      if (questionsError) throw questionsError
-
-      await loadBlocks()
+      await processJsonImport(text)
       event.target.value = '' // Reset input
     } catch (error) {
       console.error('Error uploading file:', error)
@@ -96,6 +51,77 @@ export default function Blocks() {
     } finally {
       setUploading(false)
     }
+  }
+
+  const handlePasteJson = async () => {
+    if (!pastedJson.trim()) {
+      setError('Por favor pega el JSON')
+      return
+    }
+
+    setUploading(true)
+    setError('')
+
+    try {
+      await processJsonImport(pastedJson)
+      setShowPasteModal(false)
+      setPastedJson('')
+    } catch (error) {
+      console.error('Error processing JSON:', error)
+      setError(error.message)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const processJsonImport = async (jsonText) => {
+    const questions = JSON.parse(jsonText)
+
+    if (!Array.isArray(questions)) {
+      throw new Error('El JSON debe ser un array de preguntas')
+    }
+
+    // Validar estructura básica
+    const firstQuestion = questions[0]
+    if (!firstQuestion.question || !firstQuestion.options || !firstQuestion.correct_answer) {
+      throw new Error('Estructura de JSON inválida. Revisa el formato.')
+    }
+
+    const blockName = prompt('Nombre del bloque de examen:')
+    if (!blockName) {
+      throw new Error('Nombre cancelado')
+    }
+
+    // Crear bloque
+    const { data: blockData, error: blockError } = await supabase
+      .from('exam_blocks')
+      .insert({
+        user_id: user.id,
+        name: blockName,
+        description: `${questions.length} preguntas`,
+        total_questions: 0 // Se actualizará automáticamente con el trigger
+      })
+      .select()
+      .single()
+
+    if (blockError) throw blockError
+
+    // Insertar preguntas
+    const questionsToInsert = questions.map((q) => ({
+      exam_block_id: blockData.id,
+      question_number: q.id,
+      question_text: q.question,
+      options: q.options,
+      correct_answer: q.correct_answer
+    }))
+
+    const { error: questionsError } = await supabase
+      .from('questions')
+      .insert(questionsToInsert)
+
+    if (questionsError) throw questionsError
+
+    await loadBlocks()
   }
 
   const handleDeleteBlock = async (blockId, blockName) => {
@@ -132,17 +158,26 @@ export default function Blocks() {
           <h1 className="text-3xl font-bold text-gray-900">Bloques de exámenes</h1>
           <p className="mt-2 text-gray-600">Gestiona tus conjuntos de preguntas</p>
         </div>
-        <label className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
-          <Upload className="w-4 h-4 mr-2" />
-          {uploading ? 'Importando...' : 'Importar JSON'}
-          <input
-            type="file"
-            accept=".json"
-            className="hidden"
-            onChange={handleFileUpload}
-            disabled={uploading}
-          />
-        </label>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowPasteModal(true)}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Pegar JSON
+          </button>
+          <label className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 cursor-pointer">
+            <Upload className="w-4 h-4 mr-2" />
+            {uploading ? 'Importando...' : 'Subir archivo'}
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={uploading}
+            />
+          </label>
+        </div>
       </div>
 
       {error && (
@@ -227,6 +262,81 @@ export default function Blocks() {
 ]`}
         </pre>
       </div>
+
+      {/* Modal para pegar JSON */}
+      {showPasteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold text-gray-900">Pegar JSON</h2>
+                <button
+                  onClick={() => {
+                    setShowPasteModal(false)
+                    setPastedJson('')
+                    setError('')
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+              <p className="text-sm text-gray-600 mb-4">
+                Pega aquí el JSON con las preguntas. Debe ser un array de objetos con la estructura correcta.
+              </p>
+
+              {error && (
+                <div className="mb-4 rounded-md bg-red-50 p-4">
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              )}
+
+              <textarea
+                value={pastedJson}
+                onChange={(e) => setPastedJson(e.target.value)}
+                placeholder={`[
+  {
+    "id": 1,
+    "question": "Pregunta aquí...",
+    "options": {
+      "A": "Opción A",
+      "B": "Opción B",
+      "C": "Opción C"
+    },
+    "correct_answer": "B"
+  }
+]`}
+                className="w-full h-96 p-4 border border-gray-300 rounded-md font-mono text-sm"
+                disabled={uploading}
+              />
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowPasteModal(false)
+                  setPastedJson('')
+                  setError('')
+                }}
+                disabled={uploading}
+                className="px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePasteJson}
+                disabled={uploading || !pastedJson.trim()}
+                className="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+              >
+                {uploading ? 'Importando...' : 'Importar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
