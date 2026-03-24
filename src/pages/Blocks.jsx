@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { Upload, BookOpen, Trash2, FileText, X } from 'lucide-react'
+import { Upload, BookOpen, Trash2, FileText, X, Edit, Check, ChevronUp, ChevronDown } from 'lucide-react'
 
 export default function Blocks() {
   const { user } = useAuth()
@@ -12,6 +12,11 @@ export default function Blocks() {
   const [error, setError] = useState('')
   const [showPasteModal, setShowPasteModal] = useState(false)
   const [pastedJson, setPastedJson] = useState('')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const [sortColumn, setSortColumn] = useState('created_at')
+  const [sortDirection, setSortDirection] = useState('desc')
+  const [editingBlock, setEditingBlock] = useState(null)
+  const [editCategory, setEditCategory] = useState('')
 
   useEffect(() => {
     loadBlocks()
@@ -92,6 +97,8 @@ export default function Blocks() {
       throw new Error('Nombre cancelado')
     }
 
+    const category = prompt('Categoría (ej: Data Cloud, Sales Cloud, Agentforce):') || 'Sin categoría'
+
     // Crear bloque
     const { data: blockData, error: blockError } = await supabase
       .from('exam_blocks')
@@ -99,6 +106,7 @@ export default function Blocks() {
         user_id: user.id,
         name: blockName,
         description: `${questions.length} preguntas`,
+        category: category,
         total_questions: 0 // Se actualizará automáticamente con el trigger
       })
       .select()
@@ -142,6 +150,65 @@ export default function Blocks() {
       alert('Error al eliminar el bloque')
     }
   }
+
+  const handleEditCategory = (block) => {
+    setEditingBlock(block.id)
+    setEditCategory(block.category || '')
+  }
+
+  const handleSaveCategory = async (blockId) => {
+    try {
+      const { error } = await supabase
+        .from('exam_blocks')
+        .update({ category: editCategory || null })
+        .eq('id', blockId)
+
+      if (error) throw error
+      await loadBlocks()
+      setEditingBlock(null)
+      setEditCategory('')
+    } catch (error) {
+      console.error('Error updating category:', error)
+      alert('Error al actualizar la categoría')
+    }
+  }
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  // Obtener categorías únicas
+  const categories = [...new Set(blocks.map(b => b.category || 'Sin categoría').filter(Boolean))]
+
+  // Filtrar y ordenar bloques
+  const filteredAndSortedBlocks = blocks
+    .filter(block => {
+      if (filterCategory === 'all') return true
+      const blockCategory = block.category || 'Sin categoría'
+      return blockCategory === filterCategory
+    })
+    .sort((a, b) => {
+      let aValue = a[sortColumn]
+      let bValue = b[sortColumn]
+
+      // Manejar valores null
+      if (!aValue && sortColumn === 'category') aValue = 'Sin categoría'
+      if (!bValue && sortColumn === 'category') bValue = 'Sin categoría'
+
+      if (sortColumn === 'created_at') {
+        aValue = new Date(aValue)
+        bValue = new Date(bValue)
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
 
   if (loading) {
     return (
@@ -206,39 +273,151 @@ export default function Blocks() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {blocks.map((block) => (
-            <div
-              key={block.id}
-              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+        <>
+          {/* Filtro por categoría */}
+          <div className="mb-6 flex items-center gap-4">
+            <label className="text-sm font-medium text-gray-700">Filtrar por categoría:</label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm"
             >
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{block.name}</h3>
-                  <button
-                    onClick={() => handleDeleteBlock(block.id, block.name)}
-                    className="text-red-600 hover:text-red-700"
+              <option value="all">Todas las categorías</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <span className="text-sm text-gray-500">
+              {filteredAndSortedBlocks.length} de {blocks.length} bloques
+            </span>
+          </div>
+
+          {/* Tabla de bloques */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th
+                    onClick={() => handleSort('name')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                {block.description && (
-                  <p className="text-sm text-gray-500 mb-4">{block.description}</p>
-                )}
-                <div className="flex items-center text-sm text-gray-500 mb-4">
-                  <BookOpen className="w-4 h-4 mr-1" />
-                  <span>{block.total_questions} preguntas</span>
-                </div>
-                <Link
-                  to={`/blocks/${block.id}`}
-                  className="block w-full text-center px-4 py-2 border border-blue-600 text-sm font-medium rounded-md text-blue-600 hover:bg-blue-50"
-                >
-                  Ver detalles
-                </Link>
-              </div>
-            </div>
-          ))}
-        </div>
+                    <div className="flex items-center gap-2">
+                      Nombre
+                      {sortColumn === 'name' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('category')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      Categoría
+                      {sortColumn === 'category' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('total_questions')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      Nº Preguntas
+                      {sortColumn === 'total_questions' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('created_at')}
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      Fecha creación
+                      {sortColumn === 'created_at' && (
+                        sortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredAndSortedBlocks.map((block) => (
+                  <tr key={block.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link
+                        to={`/blocks/${block.id}`}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        {block.name}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {editingBlock === block.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editCategory}
+                            onChange={(e) => setEditCategory(e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                            placeholder="Categoría..."
+                          />
+                          <button
+                            onClick={() => handleSaveCategory(block.id)}
+                            className="text-green-600 hover:text-green-700"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setEditingBlock(null)}
+                            className="text-gray-600 hover:text-gray-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-900">
+                            {block.category || 'Sin categoría'}
+                          </span>
+                          <button
+                            onClick={() => handleEditCategory(block)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <Edit className="w-3 h-3" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {block.total_questions}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(block.created_at).toLocaleDateString('es-ES', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => handleDeleteBlock(block.id, block.name)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Formato de ejemplo */}

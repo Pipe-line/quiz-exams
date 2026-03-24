@@ -13,12 +13,14 @@ CREATE TABLE exam_blocks (
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   description TEXT,
+  category TEXT, -- Categoría/tipo: "Data Cloud", "Sales Cloud", "Agentforce", etc.
   total_questions INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE INDEX idx_exam_blocks_user_id ON exam_blocks(user_id);
+CREATE INDEX idx_exam_blocks_category ON exam_blocks(category);
 
 -- =============================================
 -- 2. QUESTIONS (Preguntas)
@@ -29,7 +31,7 @@ CREATE TABLE questions (
   question_number INTEGER NOT NULL,
   question_text TEXT NOT NULL,
   options JSONB NOT NULL, -- {"A": "...", "B": "...", "C": "..."}
-  correct_answer TEXT NOT NULL, -- "A", "B", "C"
+  correct_answer TEXT NOT NULL, -- "A", "B,D", "A,B,C" (separado por comas)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(exam_block_id, question_number)
 );
@@ -81,7 +83,7 @@ CREATE TABLE user_answers (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   attempt_id UUID NOT NULL REFERENCES exam_attempts(id) ON DELETE CASCADE,
   question_id UUID NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
-  selected_answer TEXT NOT NULL,
+  selected_answer TEXT NOT NULL, -- "A", "B,D", "A,B,C" (separado por comas)
   is_correct BOOLEAN NOT NULL,
   answered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
