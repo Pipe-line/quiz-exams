@@ -67,13 +67,25 @@ export default function ManageQuestions() {
     const question = questions.find(q => q.id === questionId)
     const correction = corrections.get(questionId)
     const currentCorrectAnswer = correction?.corrected_answer || question.correct_answer
+    const currentAnswers = currentCorrectAnswer.split(',').map(a => a.trim())
 
-    // Si ya es la correcta, no hacer nada
-    if (optionKey === currentCorrectAnswer) return
+    let newAnswers
+    if (currentAnswers.includes(optionKey)) {
+      // Quitar esta opción
+      newAnswers = currentAnswers.filter(a => a !== optionKey)
+    } else {
+      // Añadir esta opción
+      newAnswers = [...currentAnswers, optionKey].sort()
+    }
+
+    // Si no queda ninguna respuesta, usar 'A' por defecto
+    if (newAnswers.length === 0) {
+      newAnswers = ['A']
+    }
 
     // Guardar cambio pendiente
     setPendingChanges(prev => new Map(prev).set(questionId, {
-      answer: optionKey,
+      answer: newAnswers.join(','),
       reason: prev.get(questionId)?.reason || ''
     }))
   }
@@ -255,7 +267,8 @@ export default function ManageQuestions() {
               {/* Opciones */}
               <div className="space-y-2 mb-4">
                 {Object.entries(question.options).map(([key, value]) => {
-                  const isCorrect = key === effectiveCorrectAnswer
+                  const correctAnswers = effectiveCorrectAnswer.split(',').map(a => a.trim())
+                  const isCorrect = correctAnswers.includes(key)
                   const isClickable = editMode
 
                   return (

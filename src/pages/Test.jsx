@@ -13,7 +13,7 @@ export default function Test() {
   const [attempt, setAttempt] = useState(null)
   const [questions, setQuestions] = useState([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState(null)
+  const [selectedAnswers, setSelectedAnswers] = useState([]) // Array de respuestas
   const [feedback, setFeedback] = useState(null)
   const [answeredQuestions, setAnsweredQuestions] = useState(new Set())
   const [loading, setLoading] = useState(true)
@@ -83,13 +83,33 @@ export default function Test() {
     return question?.correct_answer
   }
 
-  const handleAnswerSelect = async (answer) => {
-    if (feedback) return // Ya respondió esta pregunta en esta sesión
+  // Normalizar respuesta (ordenar alfabéticamente)
+  const normalizeAnswer = (answer) => {
+    if (!answer) return ''
+    return answer.split(',').map(a => a.trim()).sort().join(',')
+  }
 
-    setSelectedAnswer(answer)
+  const handleAnswerToggle = (answer) => {
+    if (feedback) return // Ya respondió esta pregunta
+
+    setSelectedAnswers(prev => {
+      if (prev.includes(answer)) {
+        // Quitar respuesta
+        return prev.filter(a => a !== answer)
+      } else {
+        // Añadir respuesta
+        return [...prev, answer].sort()
+      }
+    })
+  }
+  const handleSubmitAnswer = async () => {
+    if (selectedAnswers.length === 0) return
+    
     const currentQuestion = questions[currentQuestionIndex]
     const correctAnswer = await getCorrectAnswer(currentQuestion.id)
-    const isCorrect = answer === correctAnswer
+    const userAnswer = normalizeAnswer(selectedAnswers.join(','))
+    const normalizedCorrect = normalizeAnswer(correctAnswer)
+    const isCorrect = userAnswer === normalizedCorrect
 
     // Guardar respuesta
     const { error } = await supabase
@@ -97,7 +117,7 @@ export default function Test() {
       .insert({
         attempt_id: attemptId,
         question_id: currentQuestion.id,
-        selected_answer: answer,
+        selected_answer: userAnswer,
         is_correct: isCorrect
       })
 
@@ -137,7 +157,7 @@ export default function Test() {
     // Mostrar feedback
     setFeedback({
       isCorrect,
-      correctAnswer
+      correctAnswer: normalizedCorrect
     })
 
     // Marcar pregunta como respondida
@@ -148,7 +168,7 @@ export default function Test() {
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1
       setCurrentQuestionIndex(nextIndex)
-      setSelectedAnswer(null)
+      setSelectedAnswers([])
       setFeedback(null)
 
       // Actualizar índice en el intento
@@ -258,9 +278,10 @@ export default function Test() {
         {/* Opciones */}
         <div className="space-y-3">
           {Object.entries(currentQuestion.options).map(([key, value]) => {
-            const isSelected = selectedAnswer === key
-            const isCorrectAnswer = feedback && key === feedback.correctAnswer
-            const isWrongAnswer = feedback && isSelected && !feedback.isCorrect
+            const isSelected = selectedAnswers.includes(key)
+            const correctAnswers = feedback ? feedback.correctAnswer.split(',').map(a => a.trim()) : []
+            const isCorrectAnswer = feedback && correctAnswers.includes(key)
+            const isWrongAnswer = feedback && isSelected && !correctAnswers.includes(key)
 
             let buttonClass = 'w-full text-left p-4 border-2 rounded-lg transition-all '
             
@@ -281,7 +302,7 @@ export default function Test() {
             return (
               <button
                 key={key}
-                onClick={() => handleAnswerSelect(key)}
+                onClick={() => handleAnswerToggle(key)}
                 disabled={feedback !== null}
                 className={buttonClass}
               >
@@ -290,6 +311,9 @@ export default function Test() {
                     {key}
                   </span>
                   <span className="flex-1 text-gray-900">{value}</span>
+                  {!feedback && isSelected && (
+                    <CheckCircle className="flex-shrink-0 w-6 h-6 text-blue-600 ml-2" />
+                  )}
                   {feedback && isCorrectAnswer && (
                     <CheckCircle className="flex-shrink-0 w-6 h-6 text-green-600 ml-2" />
                   )}
@@ -301,6 +325,16 @@ export default function Test() {
             )
           })}
         </div>
+
+        {/* Botón de enviar respuesta */}
+        {!feedback && selectedAnswers.length > 0 && (
+          <button
+            onClick={handleSubmitAnswer}
+            className="mt-4 w-full inline-flex justify-center items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Enviar respuesta{selectedAnswers.length > 1 ? 's' : ''}
+          </button>
+        )}
 
         {/* Feedback */}
         {feedback && (

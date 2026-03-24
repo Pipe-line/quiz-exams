@@ -258,6 +258,17 @@ export default function Blocks() {
       "C": "Opción C"
     },
     "correct_answer": "B"
+  },
+  {
+    "id": 2,
+    "question": "Pregunta de selección múltiple",
+    "options": {
+      "A": "Opción A",
+      "B": "Opción B",
+      "C": "Opción C",
+      "D": "Opción D"
+    },
+    "correct_answer": "B,D"
   }
 ]`}
         </pre>
@@ -307,6 +318,17 @@ export default function Blocks() {
       "C": "Opción C"
     },
     "correct_answer": "B"
+  },
+  {
+    "id": 2,
+    "question": "Pregunta múltiple...",
+    "options": {
+      "A": "Opción A",
+      "B": "Opción B",
+      "C": "Opción C",
+      "D": "Opción D"
+    },
+    "correct_answer": "B,D"
   }
 ]`}
                 className="w-full h-96 p-4 border border-gray-300 rounded-md font-mono text-sm"

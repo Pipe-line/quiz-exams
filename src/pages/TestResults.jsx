@@ -200,15 +200,17 @@ export default function TestResults() {
                       
                       <div className="space-y-2 mb-3">
                         {Object.entries(question.options).map(([key, value]) => {
-                          const isUserAnswer = key === result.selected_answer
-                          const isCorrect = key === effectiveCorrectAnswer
+                          const userAnswers = result.selected_answer.split(',').map(a => a.trim())
+                          const correctAnswers = effectiveCorrectAnswer.split(',').map(a => a.trim())
+                          const isUserAnswer = userAnswers.includes(key)
+                          const isCorrect = correctAnswers.includes(key)
 
                           return (
                             <div
                               key={key}
                               className={`p-3 rounded ${
                                 isCorrect ? 'bg-green-100 border border-green-300' :
-                                isUserAnswer && !result.is_correct ? 'bg-red-100 border border-red-300' :
+                                isUserAnswer && !isCorrect ? 'bg-red-100 border border-red-300' :
                                 'bg-white border border-gray-200'
                               }`}
                             >
